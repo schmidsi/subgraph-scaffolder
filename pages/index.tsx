@@ -1,9 +1,42 @@
 import Head from 'next/head';
 
 import { createClient } from '@remixproject/plugin-webview';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import generateScaffold from '@/utils/generateScaffold';
+
+const supportedChainIdNetworkMap: Record<string, string> = {
+  // "0xd05": "Remix VM",
+  '0x5': 'goerli',
+};
+
+let hoistedCompiledContracts: any = {};
 
 export default function Home() {
+  const [compiledContracts, setCompiledContracts] = useState<any>({});
+
+  const addCompiledContracts = (contracts: any) => {
+    setCompiledContracts((prev: any) => {
+      const cleanedContracts = Object.entries(contracts).reduce(
+        (acc, [path, subContracts]) => {
+          const subContractsEntries = Object.entries(subContracts as any);
+          const cleanedSubContracts = subContractsEntries.map(
+            ([name, contract]) => [
+              `${path}:${name}`,
+              { ...(contract as any), name },
+            ],
+          );
+          return { ...acc, ...Object.fromEntries(cleanedSubContracts) };
+        },
+        {},
+      );
+
+      hoistedCompiledContracts = { ...prev, ...cleanedContracts };
+      return { ...prev, ...cleanedContracts };
+    });
+  };
+
+  console.log('compiledContracts', compiledContracts);
+
   useEffect(() => {
     const client = createClient();
     client.onload(async () => {
@@ -22,29 +55,108 @@ export default function Home() {
           languageVersion: string,
           data: any,
         ) => {
-          console.log(
-            'compilationFinished',
-            fileName,
-            // source,
-            // languageVersion,
-            data,
-          );
+          addCompiledContracts(data.contracts);
         },
       );
 
-      client.udapp.on('newTransaction', (tx: any, receipt: any) => {
-        console.log('newTransaction', { tx, receipt });
+      client.udapp.on('newTransaction', async (tx: any, receipt: any) => {
+        // console.log('newTransaction', { tx, receipt });
 
         if (!tx.to) {
+          console.log(
+            hoistedCompiledContracts,
+            Object.entries(hoistedCompiledContracts),
+          );
+
+          const [, deployedContract] = Object.entries(
+            hoistedCompiledContracts,
+          ).find(([path, contract]) => {
+            // console.log(
+            //   'findContract',
+            //   tx.input,
+            //   contract.name,
+            //   contract.evm.bytecode.object,
+            //   contract.evm.deployedBytecode.object,
+            // );
+            return (tx.input as string).includes(contract.evm.bytecode.object);
+          });
+
           console.log('contract creation', {
+            deployedContract,
             chainId: tx.chainId,
             blockNumber: tx.blockNumber,
             contractAddress: receipt.contractAddress,
           });
+
+          const network = supportedChainIdNetworkMap[tx.chainId];
+
+          console.log({ network });
+
+          if (network == undefined) {
+            alert('Unsupported network with chainId: ' + tx.chainId);
+          }
+
+          const body = {
+            abi: deployedContract.abi,
+            network,
+            protocol: 'ethereum',
+            contractAddress: receipt.contractAddress,
+            startBlock: tx.blockNumber,
+            contractName: deployedContract.name,
+          };
+
+          const response = await fetch(
+            document.location.origin + '/api/abi2subgraph',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(body),
+            },
+          );
+
+          console.log(response);
+
+          const scaffold = await response.json();
+
+          console.log(scaffold);
+
+          client.fileManager.mkdir('subgraph');
+          client.fileManager.mkdir('subgraph/src');
+          client.fileManager.mkdir('subgraph/abis');
+
+          client.fileManager.writeFile(
+            'subgraph/schema.graphql',
+            scaffold['schema.graphql'],
+          );
+
+          client.fileManager.writeFile(
+            'subgraph/schema.graphql',
+            scaffold['schema.graphql'],
+          );
+
+          client.fileManager.writeFile(
+            'subgraph/subgraph.yaml',
+            scaffold['subgraph.yaml'],
+          );
+
+          Object.entries(scaffold['abis']).forEach(([name, abi]) => {
+            client.fileManager.writeFile(`subgraph/abis/${name}`, abi);
+          });
+
+          Object.entries(scaffold['src']).forEach(([name, content]) => {
+            client.fileManager.writeFile(`subgraph/src/${name}`, content);
+          });
+
+          // const scaffold = generateScaffold({
+          //   abi: deployedContract.abi,
+          //   protocol: 'ethereum',
+          // });
         }
       });
     });
-  });
+  }, []);
 
   return (
     <>

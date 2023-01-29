@@ -27,6 +27,8 @@ const generateScaffold = ({
     immutable.fromJS(normalized),
   );
 
+  console.log({ startBlock });
+
   const scaffold = new Scaffold({
     protocol: protocolInstance,
     abi: abiInstance,
@@ -35,6 +37,8 @@ const generateScaffold = ({
     network,
     contractName,
     startBlock: startBlock.toString(),
+    node: 'https://api.studio.thegraph.com/deploy/',
+    subgraphName: `${contractName.toLowerCase()}-subgraph`,
   });
 
   return scaffold.generate();

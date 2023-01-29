@@ -11,7 +11,12 @@ export default function handler(
   res: NextApiResponse<Data>,
 ) {
   const result = generateScaffold({
-    abi: req.body,
+    abi: req.body.abi,
+    protocol: req.body.protocol,
+    contractName: req.body.contractName,
+    network: req.body.network,
+    contractAddress: req.body.contractAddress,
+    startBlock: req.body.startBlock,
   });
 
   res.status(200).json(result);
