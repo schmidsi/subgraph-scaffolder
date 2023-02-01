@@ -40,8 +40,8 @@ export default function Home() {
   useEffect(() => {
     const client = createClient();
     client.onload(async () => {
-      const data = client.call('fileManager', 'readFile', 'README.txt');
-      console.log('loaded', data);
+      // const data = client.call('fileManager', 'readFile', 'README.txt');
+      // console.log('loaded', data);
 
       client.on('fileManager', 'currentFileChanged', (fileName: string) => {
         console.log('currentFileChanged', fileName);
@@ -166,7 +166,21 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main>Hello world</main>
+      <main>
+        Hello Krishna
+        <div>
+          subgraph slug: <input type="text" />
+        </div>
+        <div>
+          deploy key: <input type="text" />
+        </div>
+        <div>
+          show subgraph code in editor: <input type="checkbox" />
+        </div>
+        <div>
+          override code in editor: <input type="checkbox" />
+        </div>
+      </main>
     </>
   );
 }
